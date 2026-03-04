@@ -1,0 +1,185 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jmeterTestPlan version="1.2" properties="5.0" jmeter="5.6.3">
+  <hashTree>
+
+    <!-- ================= Test Plan ================= -->
+    <TestPlan guiclass="TestPlanGui"
+              testclass="TestPlan"
+              testname="attack_read_vs_normal"
+              enabled="true">
+      <stringProp name="TestPlan.comments">
+        Attack vs Normal traffic simulation (DB READ)
+      </stringProp>
+      <boolProp name="TestPlan.functional_mode">false</boolProp>
+      <boolProp name="TestPlan.tearDown_on_shutdown">true</boolProp>
+      <boolProp name="TestPlan.serialize_threadgroups">false</boolProp>
+
+      <!-- Global Variables -->
+      <elementProp name="TestPlan.user_defined_variables" elementType="Arguments">
+        <collectionProp name="Arguments.arguments">
+
+          <elementProp name="HOST" elementType="Argument">
+            <stringProp name="Argument.name">HOST</stringProp>
+            <stringProp name="Argument.value">${__P(HOST,host.docker.internal)}</stringProp>
+            <stringProp name="Argument.metadata">=</stringProp>
+          </elementProp>
+
+          <elementProp name="PORT" elementType="Argument">
+            <stringProp name="Argument.name">PORT</stringProp>
+            <stringProp name="Argument.value">${__P(PORT,8080)}</stringProp>
+            <stringProp name="Argument.metadata">=</stringProp>
+          </elementProp>
+
+          <elementProp name="DURATION" elementType="Argument">
+            <stringProp name="Argument.name">DURATION</stringProp>
+            <stringProp name="Argument.value">${__P(DURATION,180)}</stringProp>
+            <stringProp name="Argument.metadata">=</stringProp>
+          </elementProp>
+        </collectionProp>
+      </elementProp>
+    </TestPlan>
+
+    <hashTree>
+
+      <!-- ================= HTTP Defaults ================= -->
+      <ConfigTestElement guiclass="HttpDefaultsGui"
+                         testclass="ConfigTestElement"
+                         testname="HTTP Request Defaults"
+                         enabled="true">
+          <stringProp name="HTTPSampler.domain">${HOST}</stringProp>
+          <stringProp name="HTTPSampler.port">${PORT}</stringProp>
+          <stringProp name="HTTPSampler.protocol">http</stringProp>
+      </ConfigTestElement>
+      <hashTree/>
+
+      <!-- ================= Attack Thread Group ================= -->
+      <ThreadGroup guiclass="ThreadGroupGui"
+                   testclass="ThreadGroup"
+                   testname="Attack-TG"
+                   enabled="true">
+        <stringProp name="ThreadGroup.on_sample_error">continue</stringProp>
+
+        <elementProp name="ThreadGroup.main_controller" elementType="LoopController">
+          <boolProp name="LoopController.continue_forever">false</boolProp>
+          <stringProp name="LoopController.loops">${__P(ATTACK_LOOPS,100)}</stringProp>
+        </elementProp>
+
+        <!-- 공격자 동시성 -->
+        <stringProp name="ThreadGroup.num_threads">${__P(ATTACK_THREADS,50)}</stringProp>
+        <stringProp name="ThreadGroup.ramp_time">${__P(ATTACK_RAMP,30)}</stringProp>
+        <boolProp name="ThreadGroup.scheduler">true</boolProp>
+        <stringProp name="ThreadGroup.duration">${DURATION}</stringProp>
+      </ThreadGroup>
+
+      <hashTree>
+
+        <!-- Attack Headers -->
+        <HeaderManager guiclass="HeaderPanel"
+                       testclass="HeaderManager"
+                       testname="Attack Headers"
+                       enabled="true">
+          <collectionProp name="HeaderManager.headers">
+            <!-- 공격자 IP -->
+            <elementProp name="" elementType="Header">
+              <stringProp name="Header.name">X-Forwarded-For</stringProp>
+              <stringProp name="Header.value">10.10.10.10</stringProp>
+            </elementProp>
+
+            <!-- RequestParam 인식을 위한 핵심 -->
+            <elementProp name="" elementType="Header">
+              <stringProp name="Header.name">Content-Type</stringProp>
+              <stringProp name="Header.value">application/x-www-form-urlencoded</stringProp>
+            </elementProp>
+          </collectionProp>
+        </HeaderManager>
+        <hashTree/>
+
+        <!-- Attack User Pace (핵심) -->
+        <ConstantTimer guiclass="ConstantTimerGui"
+                       testclass="ConstantTimer"
+                       testname="Attack User Delay"
+                       enabled="true">
+          <!-- READ 기준 최소 간격 -->
+          <stringProp name="ConstantTimer.delay">${__P(ATTACK_DELAY,150)}</stringProp>
+        </ConstantTimer>
+        <hashTree/>
+
+        <!-- Attack HTTP Request (DB READ) -->
+        <HTTPSamplerProxy guiclass="HttpTestSampleGui"
+                          testclass="HTTPSamplerProxy"
+                          testname="Attack DB Read"
+                          enabled="true">
+          <stringProp name="HTTPSampler.method">POST</stringProp>
+          <stringProp name="HTTPSampler.path">/api/load/db-read?repeatCount=${__P(ATTACK_REPEAT,1)}</stringProp>
+          <boolProp name="HTTPSampler.postBodyRaw">false</boolProp>
+        </HTTPSamplerProxy>
+
+        <hashTree/>
+      </hashTree>
+
+      <!-- ================= Normal Thread Group ================= -->
+      <ThreadGroup guiclass="ThreadGroupGui"
+                   testclass="ThreadGroup"
+                   testname="Normal-TG"
+                   enabled="true">
+        <stringProp name="ThreadGroup.on_sample_error">continue</stringProp>
+
+        <elementProp name="ThreadGroup.main_controller" elementType="LoopController">
+          <boolProp name="LoopController.continue_forever">false</boolProp>
+          <stringProp name="LoopController.loops">${__P(NORMAL_LOOPS,100)}</stringProp>
+        </elementProp>
+
+        <!-- 정상 사용자 -->
+        <stringProp name="ThreadGroup.num_threads">${__P(NORMAL_THREADS,2)}</stringProp>
+        <stringProp name="ThreadGroup.ramp_time">1</stringProp>
+        <boolProp name="ThreadGroup.scheduler">true</boolProp>
+        <stringProp name="ThreadGroup.duration">${DURATION}</stringProp>
+      </ThreadGroup>
+
+      <hashTree>
+
+        <!-- Normal Headers -->
+        <HeaderManager guiclass="HeaderPanel"
+                       testclass="HeaderManager"
+                       testname="Normal Headers"
+                       enabled="true">
+          <collectionProp name="HeaderManager.headers">
+            <!-- 정상 사용자 IP -->
+            <elementProp name="" elementType="Header">
+              <stringProp name="Header.name">X-Forwarded-For</stringProp>
+              <stringProp name="Header.value">20.20.20.20</stringProp>
+            </elementProp>
+
+            <elementProp name="" elementType="Header">
+              <stringProp name="Header.name">Content-Type</stringProp>
+              <stringProp name="Header.value">application/x-www-form-urlencoded</stringProp>
+            </elementProp>
+          </collectionProp>
+        </HeaderManager>
+        <hashTree/>
+
+        <!-- Normal User Pace -->
+        <ConstantTimer guiclass="ConstantTimerGui"
+                       testclass="ConstantTimer"
+                       testname="Normal User Delay"
+                       enabled="true">
+          <stringProp name="ConstantTimer.delay">${__P(NORMAL_DELAY,1000)}</stringProp>
+        </ConstantTimer>
+        <hashTree/>
+
+        <!-- Normal HTTP Request (DB READ) -->
+          <HTTPSamplerProxy guiclass="HttpTestSampleGui"
+                          testclass="HTTPSamplerProxy"
+                          testname="Normal DB Read"
+                          enabled="true">
+          <stringProp name="HTTPSampler.method">POST</stringProp>
+          <stringProp name="HTTPSampler.path">/api/load/db-read?repeatCount=${__P(NORMAL_REPEAT,1)}</stringProp>
+          <boolProp name="HTTPSampler.postBodyRaw">false</boolProp>
+        </HTTPSamplerProxy>
+
+        <hashTree/>
+      </hashTree>
+
+    </hashTree>
+  </hashTree>
+</jmeterTestPlan>
