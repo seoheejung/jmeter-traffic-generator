@@ -243,7 +243,6 @@ docker run --rm ^
    - Rate Limit 적용 전·후 정상 트래픽 보호 여부
    - CircuitBreaker 동작 여부
 
-```
 
 ### attack_write_vs_normal.jmx
 
@@ -266,8 +265,6 @@ docker run --rm ^
 4. 비교 포인트
    - Rate Limit 적용 전·후 쓰기 병목 완화 효과
    - CircuitBreaker 동작 여부
-
-```
 
 ### 두 시나리오의 차이
 - Throughput(RPS)는 Thread 수, 응답 시간, Loop 설정의 영향을 받는다.
