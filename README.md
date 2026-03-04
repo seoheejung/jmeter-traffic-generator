@@ -15,14 +15,23 @@
 ## 2. 논리적 위치
 - JMeter는 애플리케이션 구성 요소가 아니다.
 - 독립된 컨테이너로 실행되며, 애플리케이션 코드와 분리된 외부 트래픽 생성기로 동작한다.
-- 네트워크 상에서는 Docker bridge network를 통해 backend에 요청을 전달한다.
+- 네트워크 상에서는 Docker bridge network를 통해 **Nginx Gateway**로 요청을 전달한다.
+- Nginx는 L7 프록시로 동작하며 backend 서비스로 트래픽을 전달한다.
 - Backend Service와는 네트워크만 공유하고, 제어·권한·코드는 분리된다.
+  
 ```
-jmeter container
-   ↓
-docker bridge network
-   ↓
-backend container
+JMeter
+ ↓
+Nginx
+ ↓
+Backend
+ ├─ DB
+ ├─ Redis
+ └─ Metrics (/actuator/prometheus)
+        ↓
+     Prometheus
+        ↓
+      Grafana
 ```
 
 ---
